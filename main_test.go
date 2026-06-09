@@ -123,33 +123,39 @@ func TestVersionString(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		ver       string
 		buildTime string
 		bi        *debug.BuildInfo
 		wantAll   []string
 		wantNone  []string
 	}{
 		{
-			name: "no info",
-			wantAll: []string{"revision: unknown"},
+			name:    "version shown",
+			ver:     "1.1",
+			wantAll: []string{"version:  1.1", "revision: unknown"},
 		},
 		{
-			name: "sha truncated to 12",
-			bi:   &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456789full")},
+			name:    "sha truncated to 12",
+			ver:     "1.1",
+			bi:      &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456789full")},
 			wantAll:  []string{"abc123def456"},
 			wantNone: []string{"abc123def456789full"},
 		},
 		{
-			name: "dirty flag",
-			bi:   &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456", "vcs.modified", "true")},
+			name:    "dirty flag",
+			ver:     "1.1",
+			bi:      &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456", "vcs.modified", "true")},
 			wantAll: []string{"abc123def456-dirty"},
 		},
 		{
-			name: "vcs.time shown as committed",
-			bi:   &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456", "vcs.time", "2026-06-09T14:30:00Z")},
+			name:    "vcs.time shown as committed",
+			ver:     "1.1",
+			bi:      &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456", "vcs.time", "2026-06-09T14:30:00Z")},
 			wantAll: []string{"committed:", "2026-06-09 14:30:00 UTC"},
 		},
 		{
 			name:      "ldflags buildTime shown as built, overrides vcs.time",
+			ver:       "1.1",
 			buildTime: "2026-06-09T14:30:00Z",
 			bi:        &debug.BuildInfo{Settings: settings("vcs.time", "2026-06-08T10:00:00Z")},
 			wantAll:   []string{"built:", "2026-06-09 14:30:00 UTC"},
@@ -157,6 +163,7 @@ func TestVersionString(t *testing.T) {
 		},
 		{
 			name:      "invalid buildTime is silently ignored",
+			ver:       "1.1",
 			buildTime: "not-a-date",
 			wantAll:   []string{"revision: unknown"},
 			wantNone:  []string{"built:", "committed:"},
@@ -165,7 +172,7 @@ func TestVersionString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := versionString(tt.buildTime, tt.bi)
+			got := versionString(tt.ver, tt.buildTime, tt.bi)
 			for _, want := range tt.wantAll {
 				if !strings.Contains(got, want) {
 					t.Errorf("want %q in output, got:\n%s", want, got)

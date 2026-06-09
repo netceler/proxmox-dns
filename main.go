@@ -19,6 +19,9 @@ import (
 	"github.com/miekg/dns"
 )
 
+// appVersion is the application version. Bump this on each release.
+var appVersion = "1.1"
+
 // buildTime is injected at build time: -ldflags "-X main.buildTime=<RFC3339>"
 var buildTime string
 
@@ -45,11 +48,11 @@ var (
 
 func printVersion() {
 	bi, _ := debug.ReadBuildInfo()
-	fmt.Print(versionString(buildTime, bi))
+	fmt.Print(versionString(appVersion, buildTime, bi))
 }
 
 // versionString builds the version output. Separated from printVersion for testing.
-func versionString(bt string, bi *debug.BuildInfo) string {
+func versionString(ver, bt string, bi *debug.BuildInfo) string {
 	var revision, vcsTime string
 	var modified bool
 	if bi != nil {
@@ -77,6 +80,7 @@ func versionString(bt string, bi *debug.BuildInfo) string {
 	}
 
 	var sb strings.Builder
+	fmt.Fprintf(&sb, "version:  %s\n", ver)
 	fmt.Fprintf(&sb, "revision: %s\n", rev)
 
 	var t time.Time
