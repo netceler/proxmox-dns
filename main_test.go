@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"testing"
 
@@ -107,6 +109,74 @@ func TestHandleDNSRequestEmptyQuestion(t *testing.T) {
 	}
 	if len(w.msg.Answer) != 0 {
 		t.Errorf("expected no answers for empty question, got %d", len(w.msg.Answer))
+	}
+}
+
+func TestVersionString(t *testing.T) {
+	settings := func(kv ...string) []debug.BuildSetting {
+		var s []debug.BuildSetting
+		for i := 0; i+1 < len(kv); i += 2 {
+			s = append(s, debug.BuildSetting{Key: kv[i], Value: kv[i+1]})
+		}
+		return s
+	}
+
+	tests := []struct {
+		name      string
+		buildTime string
+		bi        *debug.BuildInfo
+		wantAll   []string
+		wantNone  []string
+	}{
+		{
+			name: "no info",
+			wantAll: []string{"revision: unknown"},
+		},
+		{
+			name: "sha truncated to 12",
+			bi:   &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456789full")},
+			wantAll:  []string{"abc123def456"},
+			wantNone: []string{"abc123def456789full"},
+		},
+		{
+			name: "dirty flag",
+			bi:   &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456", "vcs.modified", "true")},
+			wantAll: []string{"abc123def456-dirty"},
+		},
+		{
+			name: "vcs.time shown as committed",
+			bi:   &debug.BuildInfo{Settings: settings("vcs.revision", "abc123def456", "vcs.time", "2026-06-09T14:30:00Z")},
+			wantAll: []string{"committed:", "2026-06-09 14:30:00 UTC"},
+		},
+		{
+			name:      "ldflags buildTime shown as built, overrides vcs.time",
+			buildTime: "2026-06-09T14:30:00Z",
+			bi:        &debug.BuildInfo{Settings: settings("vcs.time", "2026-06-08T10:00:00Z")},
+			wantAll:   []string{"built:", "2026-06-09 14:30:00 UTC"},
+			wantNone:  []string{"committed:"},
+		},
+		{
+			name:      "invalid buildTime is silently ignored",
+			buildTime: "not-a-date",
+			wantAll:   []string{"revision: unknown"},
+			wantNone:  []string{"built:", "committed:"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := versionString(tt.buildTime, tt.bi)
+			for _, want := range tt.wantAll {
+				if !strings.Contains(got, want) {
+					t.Errorf("want %q in output, got:\n%s", want, got)
+				}
+			}
+			for _, none := range tt.wantNone {
+				if strings.Contains(got, none) {
+					t.Errorf("did not want %q in output, got:\n%s", none, got)
+				}
+			}
+		})
 	}
 }
 

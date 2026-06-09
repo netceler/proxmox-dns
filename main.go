@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -17,6 +18,9 @@ import (
 	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/miekg/dns"
 )
+
+// buildTime is injected at build time: -ldflags "-X main.buildTime=<RFC3339>"
+var buildTime string
 
 // VmProvider allows swapping Proxmox for a mock in tests.
 type VmProvider interface {
@@ -39,13 +43,71 @@ var (
 	cacheMutex sync.RWMutex
 )
 
+func printVersion() {
+	bi, _ := debug.ReadBuildInfo()
+	fmt.Print(versionString(buildTime, bi))
+}
+
+// versionString builds the version output. Separated from printVersion for testing.
+func versionString(bt string, bi *debug.BuildInfo) string {
+	var revision, vcsTime string
+	var modified bool
+	if bi != nil {
+		for _, s := range bi.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				revision = s.Value
+			case "vcs.time":
+				vcsTime = s.Value
+			case "vcs.modified":
+				modified = s.Value == "true"
+			}
+		}
+	}
+
+	rev := "unknown"
+	if revision != "" {
+		if len(revision) > 12 {
+			revision = revision[:12]
+		}
+		rev = revision
+		if modified {
+			rev += "-dirty"
+		}
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "revision: %s\n", rev)
+
+	var t time.Time
+	label := "built"
+	if bt != "" {
+		t, _ = time.Parse(time.RFC3339, bt)
+	} else if vcsTime != "" {
+		t, _ = time.Parse(time.RFC3339, vcsTime)
+		label = "committed"
+	}
+	if !t.IsZero() {
+		utc := t.UTC().Format("2006-01-02 15:04:05 UTC")
+		local := t.Local().Format("2006-01-02 15:04:05 MST")
+		fmt.Fprintf(&sb, "%s: %s / %s\n", label, utc, local)
+	}
+	return sb.String()
+}
+
 func main() {
+	version := flag.Bool("version", false, "Print build version and exit")
 	flag.IntVar(&ttl, "ttl", 3600, "DNS TTL in seconds")
 	flag.StringVar(&ipPrefix, "ipPrefix", "192.168.1.", "IP prefix to filter")
 	flag.BoolVar(&insecure, "insecure", false, "Allow self-signed TLS certs (insecure)")
 	flag.StringVar(&bind, "bind", ":53", "Address to listen on")
 	flag.StringVar(&suffix, "suffix", ".lab.lan", "Domain suffix")
 	flag.Parse()
+
+	if *version {
+		printVersion()
+		os.Exit(0)
+	}
 
 	p := &ProxmoxProvider{}
 	if err := p.login(); err != nil {
