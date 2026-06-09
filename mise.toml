@@ -2,7 +2,7 @@
 go = "latest"
 
 [tasks.build]
-run = 'go build -ldflags "-X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o proxmox-dns .'
+run = 'CGO_ENABLED=0 go build -ldflags "-X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o proxmox-dns .'
 
 [tasks.test]
 run="go test -race -v ."

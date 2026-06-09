@@ -20,7 +20,7 @@ import (
 )
 
 // appVersion is the application version. Bump this on each release.
-var appVersion = "1.1"
+var appVersion = "1.2"
 
 // buildTime is injected at build time: -ldflags "-X main.buildTime=<RFC3339>"
 var buildTime string
